@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link data-require="leaflet@0.7.7" data-semver="0.7.7" rel="stylesheet" href="https://npmcdn.com/leaflet@0.7.7/dist/leaflet.css" />
+    <script data-require="leaflet@0.7.7" data-semver="0.7.7" src="https://npmcdn.com/leaflet@0.7.7/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://rawgit.com/Leaflet/Leaflet.draw/master/dist/leaflet.draw.css" />
+    <script src="https://rawgit.com/Leaflet/Leaflet.draw/master/dist/leaflet.draw.js"></script>
+</head>
+
+<body>
+<div id="map" style="height:500px;"></div>
+<script>
+
+//get latitude and longitude
+	var passedLat = getUrlVars()["lat"];
+	var passedLon = getUrlVars()["lon"];
+	map = new L.Map('map', {center: new L.LatLng(passedLat, passedLon), zoom: 17 });
+
+L.marker([passedLat, passedLon]).addTo(map);
+	L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+		attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+	}).addTo(map);
+
+	function clearVertexes() {
+		if(window.console) window.console.log('clearing vertexes...');
+		editing = false;
+		polyEdit.disable();
+	}
+
+	function clearField() {
+	   if(window.console) window.console.log('clearing Field...');
+	   drawnItems.clearLayers();
+	}
+
+	function save() {
+
+      var json = {center: center, polygon: latlngs, area: area, zoomLevel: map.getZoom()};
+	   if(window.console) window.console.log(JSON.stringify(json));
+	    Android.showToast(JSON.stringify(json));
+	}
+
+	var drawnItems = new L.FeatureGroup();
+	map.addLayer(drawnItems);
+
+	var shapeOptions = {
+		  color: '#FF66FF',
+		  fillColor: '#0066FF',
+		  // clickable: false
+		  weight: 20
+	};
+
+	var opt = {
+		position: 'topright',
+		draw: {
+			polygon: {
+				allowIntersection: false,
+				drawError: {
+					color: '#FF0000',
+					message: ''
+				},
+				repeatMode: true,
+				shapeOptions: shapeOptions
+			}
+		},
+		edit: {
+			featureGroup: drawnItems, //REQUIRED!!
+			remove: false
+		}
+	};
+
+	var editing = false;
+	var polyEdit;
+	var latlngs;
+	map.on('click', function(e) {
+	  if(!editing){ // do not start multiple "edit sessions"
+		editing = true;
+		polyEdit = new L.Draw.Polygon(map);
+		polyEdit.enable();
+		polyEdit.addVertex(e.latlng);
+		var type = e.layerType,
+		  layer = e.layer;
+	   drawnItems.addLayer(layer);
+
+	  }
+	  document.getElementById('info').style.display = 'none';
+	  document.getElementById('clear').style.display = 'inline';
+	  document.getElementById('clearAll').style.display = 'none';
+	  document.getElementById('save').style.display = 'none';
+	});
+	var removeAllControl;
+	var center;
+	var area;
+	map.on('draw:created', function (e) {
+
+	  editing = false;
+	  var type = e.layerType,
+		  layer = e.layer;
+	  drawnItems.addLayer(layer);
+	  document.getElementById('clear').style.display = 'none';
+	  document.getElementById('clearAll').style.display = 'inline';
+	  document.getElementById('save').style.display = 'inline';
+	  latlngs = layer.getLatLngs();
+	  center = map.getCenter();
+
+      area = L.GeometryUtil.geodesicArea(layer.getLatLngs());
+	})
+
+
+
+	L.Control.RemoveAll = L.Control.extend({
+			options: {
+				position: 'topleft',
+			},
+
+			onAdd: function (map) {
+				var controlDiv = L.DomUtil.create('div', 'leaflet-control leaflet-bar');
+				var controlUI = L.DomUtil.create('a', 'leaflet-draw-edit-remove', controlDiv);
+				controlUI.title = 'Remove all drawn items';
+				controlUI.setAttribute('href', '#');
+
+				L.DomEvent
+					.addListener(controlUI, 'click', L.DomEvent.stopPropagation)
+					.addListener(controlUI, 'click', L.DomEvent.preventDefault)
+					.addListener(controlUI, 'click', function () {
+						drawnItems.clearLayers();
+						if(window.console) window.console.log('Drawings deleted...');
+					});
+				return controlDiv;
+			}
+		});
+
+	function getUrlVars()
+	{
+		var vars = [], hash;
+		var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+
+		for(var i = 0; i < hashes.length; i++)
+		{
+			hash = hashes[i].split('=');
+			vars.push(hash[0]);
+			vars[hash[0]] = hash[1];
+		}
+
+		return vars;
+	}
+
+	</script>
+<div style="height:60px;">
+    <p id="info" style="margin: auto;"><b>Click on the map to draw field</b></p>
+    <button id="clear" onclick="clearVertexes()" type="button" style = "color: white; padding: 10px 20px;display:none">Clear</button>
+    <button id="clearAll" onclick="clearField()" type="button" style = "color: white; padding: 10px 20px;display:none">Clear All</button>
+    <button id="save" onclick="save()" type="button" style = "color: white; padding: 10px 20px;display:none">Save</button>
+
+</div>
+</body>
+
+</html>
